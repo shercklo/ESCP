@@ -1,5 +1,6 @@
 import os, sys
 import matplotlib.pyplot as plt
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from log_util.logger import Logger
 from models.policy import Policy
@@ -23,6 +24,7 @@ from envs.grid_world import RandomGridWorld
 from envs.grid_world_general import RandomGridWorldPlat
 from algorithms.contrastive import ContrastiveLoss
 
+
 class SAC:
     def __init__(self):
         self.logger = Logger()
@@ -31,9 +33,11 @@ class SAC:
         self.parameter = self.logger.parameter
         self.policy_config = Policy.make_config_from_param(self.parameter)
         self.value_config = Value.make_config_from_param(self.parameter)
-        self.env = NonstationaryEnv(gym.make(self.parameter.env_name), log_scale_limit=self.parameter.env_default_change_range,
+        self.env = NonstationaryEnv(gym.make(self.parameter.env_name),
+                                    log_scale_limit=self.parameter.env_default_change_range,
                                     rand_params=self.parameter.varying_params)
-        self.ood_env = NonstationaryEnv(gym.make(self.parameter.env_name), log_scale_limit=self.parameter.env_ood_change_range,
+        self.ood_env = NonstationaryEnv(gym.make(self.parameter.env_name),
+                                        log_scale_limit=self.parameter.env_ood_change_range,
                                         rand_params=self.parameter.varying_params)
         self.global_seed(np.random, random, self.env, self.ood_env, seed=self.parameter.seed)
         torch.manual_seed(seed=self.parameter.seed)
@@ -65,12 +69,12 @@ class SAC:
                                         non_stationary=False)
 
         self.ood_ns_agent = EnvRemoteArray(parameter=self.parameter, env_name=self.parameter.env_name,
-                                        worker_num=self.parameter.num_threads, seed=self.parameter.seed + 3,
-                                        deterministic=True, use_remote=True, policy_type=Policy,
-                                        history_len=self.parameter.history_length, env_decoration=NonstationaryEnv,
-                                        env_tasks=self.ood_tasks,
-                                        use_true_parameter=self.parameter.use_true_parameter,
-                                        non_stationary=True)
+                                           worker_num=self.parameter.num_threads, seed=self.parameter.seed + 3,
+                                           deterministic=True, use_remote=True, policy_type=Policy,
+                                           history_len=self.parameter.history_length, env_decoration=NonstationaryEnv,
+                                           env_tasks=self.ood_tasks,
+                                           use_true_parameter=self.parameter.use_true_parameter,
+                                           non_stationary=True)
 
         self.non_station_agent = EnvRemoteArray(parameter=self.parameter, env_name=self.parameter.env_name,
                                                 worker_num=self.parameter.num_threads, seed=self.parameter.seed + 3,
@@ -79,13 +83,15 @@ class SAC:
                                                 env_decoration=NonstationaryEnv, env_tasks=self.test_tasks,
                                                 use_true_parameter=self.parameter.use_true_parameter,
                                                 non_stationary=True)
-        self.non_station_agent_single_thread = EnvRemoteArray(parameter=self.parameter, env_name=self.parameter.env_name,
-                                                worker_num=1, seed=self.parameter.seed + 4,
-                                                deterministic=True, use_remote=False, policy_type=Policy,
-                                                history_len=self.parameter.history_length,
-                                                env_decoration=NonstationaryEnv, env_tasks=self.test_tasks,
-                                                use_true_parameter=self.parameter.use_true_parameter,
-                                                non_stationary=True)
+        self.non_station_agent_single_thread = EnvRemoteArray(parameter=self.parameter,
+                                                              env_name=self.parameter.env_name,
+                                                              worker_num=1, seed=self.parameter.seed + 4,
+                                                              deterministic=True, use_remote=False, policy_type=Policy,
+                                                              history_len=self.parameter.history_length,
+                                                              env_decoration=NonstationaryEnv,
+                                                              env_tasks=self.test_tasks,
+                                                              use_true_parameter=self.parameter.use_true_parameter,
+                                                              non_stationary=True)
         if self.parameter.use_true_parameter:
             self.policy_config['ep_dim'] = self.training_agent.env_parameter_len
             self.value_config['ep_dim'] = self.training_agent.env_parameter_len
@@ -108,17 +114,20 @@ class SAC:
 
         if not self.parameter.ep_pretrain_path_suffix == 'None':
             pretrain_path = os.path.join(os.path.join(os.path.dirname(os.path.dirname(self.logger.model_output_dir)),
-                                      '{}-{}'.format(self.parameter.env_name, self.parameter.ep_pretrain_path_suffix),
-                                              'model'), 'environment_probe.pt')
+                                                      '{}-{}'.format(self.parameter.env_name,
+                                                                     self.parameter.ep_pretrain_path_suffix),
+                                                      'model'), 'environment_probe.pt')
             self.logger('load model from {}'.format(pretrain_path))
-            _, _, _, _, _ = map(lambda x: x.load(pretrain_path, map_location=torch.device('cpu')), [self.policy.ep, self.value1.ep,
-                                                                                    self.value2.ep, self.target_value1.ep,
-                                                                                    self.target_value2.ep])
+            _, _, _, _, _ = map(lambda x: x.load(pretrain_path, map_location=torch.device('cpu')),
+                                [self.policy.ep, self.value1.ep,
+                                 self.value2.ep, self.target_value1.ep,
+                                 self.target_value2.ep])
 
         self.tau = self.parameter.sac_tau
         self.target_entropy = -self.parameter.target_entropy_ratio * self.act_dim
         # self.replay_buffer = MemoryNp(self.parameter.uniform_sample, self.parameter.rnn_slice_num)
-        self.replay_buffer = MemoryArray(self.parameter.rnn_slice_num, max_trajectory_num=5000, max_traj_step=1050, fix_length=self.parameter.rnn_fix_length)
+        self.replay_buffer = MemoryArray(self.parameter.rnn_slice_num, max_trajectory_num=5000, max_traj_step=1050,
+                                         fix_length=self.parameter.rnn_fix_length)
         # self.replay_buffer.set_max_size(self.parameter.sac_replay_size)
         self.policy_parameter = [*self.policy.parameters(True)]
         self.policy_optimizer = torch.optim.Adam(self.policy_parameter, lr=self.parameter.learning_rate)
@@ -130,15 +139,18 @@ class SAC:
         self.device = torch.device('cuda', index=0) if torch.cuda.is_available() else torch.device('cpu')
         self.logger.log(f"torch device is {self.device}")
         self.log_sac_alpha = (torch.ones((1)).to(torch.get_default_dtype()
-                                         ) * np.log(self.parameter.sac_alpha)).to(self.device).requires_grad_(True)
+                                                 ) * np.log(self.parameter.sac_alpha)).to(self.device).requires_grad_(
+            True)
         self.alpha_optimizer = torch.optim.Adam([self.log_sac_alpha], lr=1e-2)
         self.rmdm_loss = RMDMLoss(max_env_len=self.parameter.task_num, tau=self.parameter.rmdm_tau)
-        to_device(self.device, self.policy, self.policy_for_test, self.value1, self.value2, self.target_value1, self.target_value2)
+        to_device(self.device, self.policy, self.policy_for_test, self.value1, self.value2, self.target_value1,
+                  self.target_value2)
 
         self.transition = None
         self.transition_optimizer = None
         if self.parameter.use_contrastive:
-            self.contrastive_loss = ContrastiveLoss(self.parameter.ep_dim, self.parameter.task_num, ep=self.policy_target.ep)
+            self.contrastive_loss = ContrastiveLoss(self.parameter.ep_dim, self.parameter.task_num,
+                                                    ep=self.policy_target.ep)
             to_device(self.device, self.contrastive_loss)
         else:
             self.contrastive_loss = None
@@ -150,10 +162,12 @@ class SAC:
         self.all_valids_target = None
         self.all_tasks_validate = None
         self.log_consis_w_alpha = (torch.ones((1)).to(torch.get_default_dtype()
-                                                      ) * np.log(self.parameter.consistency_loss_weight)).to(self.device).requires_grad_(
+                                                      ) * np.log(self.parameter.consistency_loss_weight)).to(
+            self.device).requires_grad_(
             True)
         self.log_diverse_w_alpha = (torch.ones((1)).to(torch.get_default_dtype()
-                                                       ) * np.log(self.parameter.diversity_loss_weight)).to(self.device).requires_grad_(
+                                                       ) * np.log(self.parameter.diversity_loss_weight)).to(
+            self.device).requires_grad_(
             True)
         self.repre_loss_factor = self.parameter.repre_loss_factor
         self.w_optimizer = torch.optim.SGD([self.log_consis_w_alpha, self.log_diverse_w_alpha], lr=1e-1)
@@ -184,7 +198,7 @@ class SAC:
         rmdm_loss_tensor = consistency_loss = diverse_loss = None
         batch_task_num = 1
         """update critic/value net"""
-        self.timer.register_point('calculating_target_Q', level=3)     # (TIME: 0.011)
+        self.timer.register_point('calculating_target_Q', level=3)  # (TIME: 0.011)
         consis_w = torch.exp(self.log_consis_w_alpha)
         diverse_w = torch.exp(self.log_diverse_w_alpha)
         with torch.no_grad():
@@ -196,21 +210,26 @@ class SAC:
             else:
                 total_state = next_state
                 total_last_action = action
-            _, _, next_action_total, nextact_logprob, _ = self.policy.rsample(total_state, total_last_action, policy_hidden)
+            _, _, next_action_total, nextact_logprob, _ = self.policy.rsample(total_state, total_last_action,
+                                                                              policy_hidden)
             ep_total = self.policy.ep_tensor.detach() if self.parameter.stop_pg_for_ep else None
             if self.parameter.stop_pg_for_ep and self.rmdm_loss.history_env_mean is not None:
-                ind_ = torch.abs(task[..., -1, 0]-1).to(dtype=torch.int64)
+                ind_ = torch.abs(task[..., -1, 0] - 1).to(dtype=torch.int64)
                 ep_total = self.rmdm_loss.history_env_mean[ind_].detach()
                 # ep_total = torch.cat([ep_total] * state.shape[1], dim=1)
                 # ep_total = env_param[:, :, -2:]
             if self.parameter.rnn_fix_length and self.parameter.stop_pg_for_ep:
                 target_Q1, _ = self.target_value1.forward(total_state[:, -1:, :], total_last_action[:, -1:, :],
-                                                          next_action_total[:, -1:, :], value_hidden1, ep_out=ep_total[:, -1:, :])
+                                                          next_action_total[:, -1:, :], value_hidden1,
+                                                          ep_out=ep_total[:, -1:, :])
                 target_Q2, _ = self.target_value2.forward(total_state[:, -1:, :], total_last_action[:, -1:, :],
-                                                          next_action_total[:, -1:, :], value_hidden2, ep_out=ep_total[:, -1:, :])
+                                                          next_action_total[:, -1:, :], value_hidden2,
+                                                          ep_out=ep_total[:, -1:, :])
             else:
-                target_Q1, _ = self.target_value1.forward(total_state, total_last_action, next_action_total, value_hidden1, ep_out=ep_total)
-                target_Q2, _ = self.target_value2.forward(total_state, total_last_action, next_action_total, value_hidden2, ep_out=ep_total)
+                target_Q1, _ = self.target_value1.forward(total_state, total_last_action, next_action_total,
+                                                          value_hidden1, ep_out=ep_total)
+                target_Q2, _ = self.target_value2.forward(total_state, total_last_action, next_action_total,
+                                                          value_hidden2, ep_out=ep_total)
 
             if self.parameter.rnn_fix_length and not self.parameter.stop_pg_for_ep:
                 target_Q1, target_Q2 = target_Q1[..., -1:, :], target_Q2[..., -1:, :]
@@ -225,7 +244,7 @@ class SAC:
                 target_v = torch.min(target_Q1, target_Q2) - alpha.detach() * nextact_logprob
                 target_Q = (reward[..., -1:, :] + (mask[..., -1:, :] * self.parameter.gamma * target_v)).detach()
         self.timer.register_end(level=3)
-        self.timer.register_point('current_Q', level=3)     # (TIME: 0.006)
+        self.timer.register_point('current_Q', level=3)  # (TIME: 0.006)
         _, _, action_rsample, logprob, _ = self.policy.rsample(state, last_action, policy_hidden)
         ep = self.policy.ep_tensor
         ep_current = self.policy.ep_tensor.detach() if self.parameter.stop_pg_for_ep else None
@@ -234,8 +253,10 @@ class SAC:
             # ep_current = torch.cat([ep_current] * state.shape[1], dim=1)
             # ep_current = env_param[:, :, -2:]
         if self.parameter.rnn_fix_length and self.parameter.stop_pg_for_ep:
-            current_Q1, _ = self.value1.forward(state[:, -1:, :], last_action[:, -1:, :], action[:, -1:, :], value_hidden1, ep_out=ep_current[:, -1:, :])
-            current_Q2, _ = self.value2.forward(state[:, -1:, :], last_action[:, -1:, :], action[:, -1:, :], value_hidden2, ep_out=ep_current[:, -1:, :])
+            current_Q1, _ = self.value1.forward(state[:, -1:, :], last_action[:, -1:, :], action[:, -1:, :],
+                                                value_hidden1, ep_out=ep_current[:, -1:, :])
+            current_Q2, _ = self.value2.forward(state[:, -1:, :], last_action[:, -1:, :], action[:, -1:, :],
+                                                value_hidden2, ep_out=ep_current[:, -1:, :])
         elif self.parameter.rnn_fix_length:
             current_Q1, _ = self.value1.forward(state, last_action, action, value_hidden1, ep_out=ep_current)
             current_Q2, _ = self.value2.forward(state, last_action, action, value_hidden2, ep_out=ep_current)
@@ -246,13 +267,14 @@ class SAC:
 
         self.timer.register_end(level=3)
         if self.parameter.rnn_fix_length is None or self.parameter.rnn_fix_length == 0:
-            q1_loss, q2_loss = map(lambda c: ((c - target_Q) * valid).pow(2).sum() / valid_num, [current_Q1, current_Q2])
+            q1_loss, q2_loss = map(lambda c: ((c - target_Q) * valid).pow(2).sum() / valid_num,
+                                   [current_Q1, current_Q2])
         else:
             q1_loss = (current_Q1 - target_Q).pow(2).mean()
             q2_loss = (current_Q2 - target_Q).pow(2).mean()
         critic_loss = q1_loss + q2_loss
 
-        self.timer.register_point('value_optimization', level=3)     # (TIME: 0.028)
+        self.timer.register_point('value_optimization', level=3)  # (TIME: 0.028)
         self.value_optimizer.zero_grad()
         critic_loss.backward()
         if torch.isnan(critic_loss).any().item():
@@ -263,19 +285,21 @@ class SAC:
         self.value_optimizer.step()
         self.timer.register_end(level=3)
         """update policy and alpha"""
-        self.timer.register_point('actor_loss', level=3)     # (TIME: 0.012)
+        self.timer.register_point('actor_loss', level=3)  # (TIME: 0.012)
 
         if self.parameter.ep_smooth_factor > 0:
             ep = self.policy.tmp_ep_res(state, last_action, policy_hidden)
         if self.parameter.rnn_fix_length and self.parameter.stop_pg_for_ep:
-            actor_q1, _ = self.value1.forward(state[:, -1:, :], last_action[:, -1:, :], action_rsample[:, -1:, :], value_hidden1, ep_out=ep_current[:, -1:, :])
-            actor_q2, _ = self.value2.forward(state[:, -1:, :], last_action[:, -1:, :], action_rsample[:, -1:, :], value_hidden2, ep_out=ep_current[:, -1:, :])
+            actor_q1, _ = self.value1.forward(state[:, -1:, :], last_action[:, -1:, :], action_rsample[:, -1:, :],
+                                              value_hidden1, ep_out=ep_current[:, -1:, :])
+            actor_q2, _ = self.value2.forward(state[:, -1:, :], last_action[:, -1:, :], action_rsample[:, -1:, :],
+                                              value_hidden2, ep_out=ep_current[:, -1:, :])
         else:
             actor_q1, _ = self.value1.forward(state, last_action, action_rsample, value_hidden1, ep_out=ep_current)
             actor_q2, _ = self.value2.forward(state, last_action, action_rsample, value_hidden2, ep_out=ep_current)
         if self.parameter.rnn_fix_length:
             actor_q1, actor_q2, logprob = map(lambda x: x[..., -1:, :],
-                                                     [actor_q1, actor_q2, logprob])
+                                              [actor_q1, actor_q2, logprob])
         actor_q = torch.min(actor_q1, actor_q2)
         if self.parameter.rnn_fix_length:
             actor_loss = (alpha.detach() * logprob - actor_q).mean()
@@ -289,20 +313,20 @@ class SAC:
 
             if self.parameter.rnn_fix_length:
                 rmdm_loss_tensor, consistency_loss, diverse_loss, batch_task_num, consis_w_loss, diverse_w_loss, \
-                    all_repre, all_valids = self.rmdm_loss.rmdm_loss_timing(ep, task, valid, consis_w, diverse_w,
-                                                                            True, True,
-                                                                            rbf_radius=self.parameter.rbf_radius,
-                                                                            kernel_type=self.parameter.kernel_type)
+                all_repre, all_valids = self.rmdm_loss.rmdm_loss_timing(ep, task, valid, consis_w, diverse_w,
+                                                                        True, True,
+                                                                        rbf_radius=self.parameter.rbf_radius,
+                                                                        kernel_type=self.parameter.kernel_type)
             else:
                 rmdm_loss_tensor, consistency_loss, diverse_loss, batch_task_num, consis_w_loss, diverse_w_loss, \
-                    all_repre, all_valids = self.rmdm_loss.rmdm_loss(ep, task, valid, consis_w, diverse_w, True,
-                                                                        True, rbf_radius=self.parameter.rbf_radius,
-                                                                            kernel_type=self.parameter.kernel_type)
+                all_repre, all_valids = self.rmdm_loss.rmdm_loss(ep, task, valid, consis_w, diverse_w, True,
+                                                                 True, rbf_radius=self.parameter.rbf_radius,
+                                                                 kernel_type=self.parameter.kernel_type)
             self.all_repre = [item.detach() for item in all_repre]
             self.all_valids = [item.detach() for item in all_valids]
             self.all_tasks = self.rmdm_loss.lst_tasks
             do_not_train_ep = False
-            if self.replay_buffer.size < self.parameter.minimal_repre_rp_size\
+            if self.replay_buffer.size < self.parameter.minimal_repre_rp_size \
                     or len(self.all_tasks) < int(0.5 * self.parameter.task_num):
                 do_not_train_ep = True
             if rmdm_loss_tensor is not None and not do_not_train_ep:
@@ -310,12 +334,12 @@ class SAC:
                     self.logger.log(f'rmdm produce nan: consistency: {consistency_loss.item()}, '
                                     f'diverse loss: {diverse_loss.item()}')
                 actor_loss = actor_loss + rmdm_loss_tensor * self.repre_loss_factor
-                if self.parameter.l2_norm_for_ep > 0.0 :
+                if self.parameter.l2_norm_for_ep > 0.0:
                     l2_norm_for_ep = 0
                     ep = self.policy.ep if self.parameter.ep_smooth_factor == 0.0 else self.policy.ep_temp
-                    for parameter_ in ep.parameters(True): # 8
+                    for parameter_ in ep.parameters(True):  # 8
                         l2_norm_for_ep = l2_norm_for_ep + torch.norm(parameter_).pow(2)
-                    actor_loss = actor_loss + l2_norm_for_ep* self.parameter.l2_norm_for_ep
+                    actor_loss = actor_loss + l2_norm_for_ep * self.parameter.l2_norm_for_ep
             else:
                 pass
             self.timer.register_end(level=5)
@@ -341,7 +365,7 @@ class SAC:
                 ep = ep[..., -1:, :]
                 contrastive_loss = self.contrastive_loss.contrastive_loss(ep, query_tensor, task)
                 actor_loss = actor_loss + contrastive_loss
-        self.timer.register_point('policy_optimization', level=3)     # (TIME: 0.026)
+        self.timer.register_point('policy_optimization', level=3)  # (TIME: 0.026)
         self.policy_optimizer.zero_grad()
         if torch.isnan(actor_loss).any().item():
             self.logger.log(f"nan found in actor loss, state: {state.abs().sum()}, "
@@ -413,7 +437,7 @@ class SAC:
     def sac_update_from_buffer(self):
         log = {}
         for _ in range(self.parameter.update_interval):
-            self.timer.register_point('sample_from_replay', level=1)     # (TIME: 0.4)
+            self.timer.register_point('sample_from_replay', level=1)  # (TIME: 0.4)
             if FC_MODE:
                 batch = self.replay_buffer.sample_transitions(self.parameter.sac_mini_batch_size)
             else:
@@ -422,20 +446,20 @@ class SAC:
                                                                            self.parameter.rnn_fix_length)
                 else:
                     batch, total_size = self.replay_buffer.sample_trajs(self.parameter.sac_mini_batch_size,
-                                                        self.parameter.rnn_sample_max_batch_size)
+                                                                        self.parameter.rnn_sample_max_batch_size)
                 # self.logger.log(f'total transition in the trajectories is {total_size}, state shape: {np.array(batch.state).shape}')
 
             dtype = torch.get_default_dtype()
             device = self.device
-            self.timer.register_point('from_numpy', level=1)     # (TIME: 0.4)
+            self.timer.register_point('from_numpy', level=1)  # (TIME: 0.4)
             # self.logger(np.array(batch.state), np.array(batch.reward))
             states, next_states, actions, last_action, rewards, masks, valid, task, env_param = \
-                    map(lambda x: torch.from_numpy(np.array(x)).to(dtype=dtype, device=device),
+                map(lambda x: torch.from_numpy(np.array(x)).to(dtype=dtype, device=device),
                     [batch.state, batch.next_state, batch.action, batch.last_action,
-                        batch.reward, batch.mask, batch.valid, batch.task, batch.env_param])
+                     batch.reward, batch.mask, batch.valid, batch.task, batch.env_param])
             self.timer.register_end(level=1)
             if not FC_MODE:
-                self.timer.register_point('making_slice', level=3)     # (TIME: 0.14)
+                self.timer.register_point('making_slice', level=3)  # (TIME: 0.14)
                 if self.parameter.rnn_fix_length is None or self.parameter.rnn_fix_length == 0:
                     self.timer.register_point('generate_hidden_state', level=4)
                     hidden_policy = self.policy.generate_hidden_state(states, last_action,
@@ -446,7 +470,8 @@ class SAC:
                                                                       slice_num=self.parameter.rnn_slice_num)
                     self.timer.register_point('Policy.slice_tensor', level=4)
                     states, next_states, actions, last_action, rewards, masks, valid, task, env_param = \
-                        map(Policy.slice_tensor, [states, next_states, actions, last_action, rewards, masks, valid, task, env_param],
+                        map(Policy.slice_tensor,
+                            [states, next_states, actions, last_action, rewards, masks, valid, task, env_param],
                             [self.parameter.rnn_slice_num] * 9)
 
                     self.timer.register_point('Policy.merge_slice_tensor', level=4)
@@ -475,7 +500,7 @@ class SAC:
                             [states, next_states, actions, last_action, rewards, masks, valid, task, env_param])
                     self.timer.register_end(level=4)
                 else:
-                    self.timer.register_point('Policy.slice_tensor', level=4)     # (TIME: 0.132)
+                    self.timer.register_point('Policy.slice_tensor', level=4)  # (TIME: 0.132)
                     # states, next_states, actions, last_action, rewards, masks, valid, task = \
                     #     map(Policy.slice_tensor_overlap, [states, next_states, actions, last_action, rewards, masks, valid, task],
                     #         [self.parameter.rnn_fix_length] * 8)
@@ -493,7 +518,7 @@ class SAC:
             else:
                 hidden_policy, hidden_value1, hidden_value2 = [], [], []
             self.timer.register_end(level=1)
-            #if custom_additional_reward is not None:
+            # if custom_additional_reward is not None:
             #    with torch.no_grad():
             #        rewards = rewards + custom_additional_reward(states)
             states, next_states, actions, last_action, rewards, masks, valid, task, env_param = map(
@@ -517,14 +542,14 @@ class SAC:
                     iter_batch_size = states.shape[0] // self.parameter.sac_inner_iter_num
                     # self.logger(f'valid traj num: {states.shape[0]}, batch size: {iter_batch_size}')
                     for i in range(self.parameter.sac_inner_iter_num):
-                        self.timer.register_point('sample_from_batch', level=1)     # (TIME: 0.003)
+                        self.timer.register_point('sample_from_batch', level=1)  # (TIME: 0.003)
                         start = i * iter_batch_size
-                        end = min((i+1) * iter_batch_size, states.shape[0])
+                        end = min((i + 1) * iter_batch_size, states.shape[0])
                         states_batch, next_states_batch, actions_batch, \
                         last_action_batch, rewards_batch, masks_batch, valid_batch, task_batch, env_param_batch = \
-                        map(lambda x: x[start: end], [
-                            states, next_states, actions, last_action, rewards, masks, valid, task, env_param
-                        ])
+                            map(lambda x: x[start: end], [
+                                states, next_states, actions, last_action, rewards, masks, valid, task, env_param
+                            ])
                         data_is_valid = False
                         if self.parameter.rnn_fix_length:
                             if valid_batch[..., -1:, :].sum().item() >= 2:
@@ -540,10 +565,11 @@ class SAC:
                                 [start] * 3,
                                 [end] * 3)
                         hidden_transition_batch = None
-                        self.timer.register_point('self.sac_update', level=1)     # (TIME: 0.091)
+                        self.timer.register_point('self.sac_update', level=1)  # (TIME: 0.091)
                         can_optimize_ep = self.replay_buffer.size > self.parameter.ep_start_num
                         res_dict = self.sac_update(states_batch, actions_batch, next_states_batch, rewards_batch,
-                                                   masks_batch, last_action_batch, valid_batch, task_batch, env_param_batch,
+                                                   masks_batch, last_action_batch, valid_batch, task_batch,
+                                                   env_param_batch,
                                                    hidden_policy_batch, hidden_value1_batch, hidden_value2_batch,
                                                    hidden_transition_batch, can_optimize_ep)
                         self.timer.register_end(level=1)
@@ -567,7 +593,7 @@ class SAC:
     def append_key(d, tail):
         res = {}
         for k, v in d.items():
-            res[k+tail] = v
+            res[k + tail] = v
         return res
 
     def value_function_soft_update(self):
@@ -577,6 +603,7 @@ class SAC:
         else:
             self.target_value1.copy_weight_from(self.value1, self.tau)
             self.target_value2.copy_weight_from(self.value2, self.tau)
+
     def run(self):
         total_steps = 0
         if self.replay_buffer.size < self.parameter.start_train_num:
@@ -596,7 +623,7 @@ class SAC:
             future_ns = self.non_station_agent.submit_task(self.parameter.test_sample_num, self.policy)
             future_ood_ns = self.ood_ns_agent.submit_task(self.parameter.test_sample_num, self.policy)
             training_start = time.time()
-            single_step_iterater = range(self.parameter.min_batch_size) if not USE_TQDM else\
+            single_step_iterater = range(self.parameter.min_batch_size) if not USE_TQDM else \
                 tqdm(range(self.parameter.min_batch_size))
             for step in single_step_iterater:
                 # self.policy.to(torch.device('cpu'))
@@ -624,7 +651,7 @@ class SAC:
                 if self.all_repre is not None:
                     fig, fig_mean = visualize_repre(self.all_repre, self.all_valids,
                                                     os.path.join(self.logger.output_dir, 'visual.png'),
-                                                    self.env_param_dict, self.all_tasks )
+                                                    self.env_param_dict, self.all_tasks)
                     fig_real_param = visualize_repre_real_param(self.all_repre, self.all_valids, self.all_tasks,
                                                                 self.env_param_dict)
                     if fig:
@@ -646,8 +673,10 @@ class SAC:
             self.logger.add_tabular_data(tb_prefix='evaluation', **self.append_key(log_non_station, "NS"))
             self.logger.add_tabular_data(tb_prefix='evaluation', **self.append_key(log_ood_ns, 'OOD_NS'))
             self.logger.log_tabular('TotalInteraction', total_steps, tb_prefix='timestep')
-            self.logger.log_tabular('OODDeltaVSTestRet', np.mean(log_ood['EpRet']) - np.mean(log_test['EpRet']), tb_prefix='evaluation')
-            self.logger.log_tabular('NSDeltaVSTestRet', np.mean(log_non_station['EpRet']) - np.mean(log_test['EpRet']), tb_prefix='evaluation')
+            self.logger.log_tabular('OODDeltaVSTestRet', np.mean(log_ood['EpRet']) - np.mean(log_test['EpRet']),
+                                    tb_prefix='evaluation')
+            self.logger.log_tabular('NSDeltaVSTestRet', np.mean(log_non_station['EpRet']) - np.mean(log_test['EpRet']),
+                                    tb_prefix='evaluation')
             self.logger.log_tabular('ReplayBufferTrajNum', len(self.replay_buffer), tb_prefix='timestep')
             self.logger.log_tabular('ReplayBufferSize', self.replay_buffer.size, tb_prefix='timestep')
             self.logger.log_tabular('TrainingPeriod', training_end - training_start, tb_prefix='period')
@@ -747,6 +776,7 @@ class SAC:
 
 if __name__ == '__main__':
     import ray
+
     ray.init()
     sac = SAC()
     sac.run()

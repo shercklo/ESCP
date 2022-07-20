@@ -3,6 +3,7 @@ from gym import Wrapper
 import numpy as np
 import copy
 
+
 # this file is referred to https://github.com/dennisl88/rand_param_envs
 
 class NonstationaryEnv(Wrapper):
@@ -188,11 +189,13 @@ class NonstationaryEnv(Wrapper):
                         res[i] = interval * current_task_count_ + low_
                     res = np.array(res).reshape(size)
                     return res
+
                 uniform = uniform_function
             else:
-                uniform = lambda low_,up_,size: np.random.uniform(low_, up_, size=size)
+                uniform = lambda low_, up_, size: np.random.uniform(low_, up_, size=size)
         else:
             dig_range = np.abs(dig_range)
+
             def uniform_function(low_, up_, size):
                 res = [0] * np.prod(size)
                 for i in range(len(res)):
@@ -200,7 +203,7 @@ class NonstationaryEnv(Wrapper):
                         if current_task_count_ >= n_tasks // 2:
                             interval = (up_ - dig_range) / (n_tasks // 2)
                             # res[i] = interval * (current_task_count_ - n_tasks // 2 + 1) + dig_range
-                            res[i] = interval * (current_task_count_ - n_tasks // 2 ) + dig_range
+                            res[i] = interval * (current_task_count_ - n_tasks // 2) + dig_range
                         else:
                             interval = (-dig_range - low_) / (n_tasks // 2)
                             # res[i] = interval * (n_tasks // 2 - current_task_count_ - 1) + low_
@@ -213,9 +216,10 @@ class NonstationaryEnv(Wrapper):
                                 break
                 res = np.array(res).reshape(size)
                 return res
+
             uniform = uniform_function
-        bound = lambda x: np.array(1.5) ** uniform(-self.log_scale_limit, self.log_scale_limit,  x)
-        bound_uniform = lambda x: uniform(-self.log_scale_limit, self.log_scale_limit,  x)
+        bound = lambda x: np.array(1.5) ** uniform(-self.log_scale_limit, self.log_scale_limit, x)
+        bound_uniform = lambda x: uniform(-self.log_scale_limit, self.log_scale_limit, x)
         for _ in range(n_tasks):
             # body mass -> one multiplier for all body parts
             new_params = {}
@@ -260,14 +264,13 @@ class NonstationaryEnv(Wrapper):
                     new_params['gravity'][2] *= np.cos(angle[0])
 
             if 'wind' in self.rand_params:
-                new_params['wind'] = bound_uniform((2, ))
+                new_params['wind'] = bound_uniform((2,))
 
             if 'density' in self.rand_params:
                 density_mutipliers = bound((1,))
                 new_params['density'] = np.multiply(self.init_params['density'], density_mutipliers)
             param_sets.append(new_params)
             current_task_count_ += 1
-
 
         return param_sets
 
@@ -356,7 +359,6 @@ class NonstationaryEnv(Wrapper):
         if 'geom_friction_1_dim' in self.cur_params:
             self.cur_params['geom_friction_1_dim'] = np.array([1.0])
 
-
     @property
     def env_parameter_vector(self):
         return self.cur_parameter_vector
@@ -368,7 +370,7 @@ class NonstationaryEnv(Wrapper):
         keys = [key for key in self.rand_params]
         if len(keys) == 0:
             return []
-        vec_ = [self.cur_params[key].reshape(-1,) for key in keys]
+        vec_ = [self.cur_params[key].reshape(-1, ) for key in keys]
         cur_vec = np.hstack(vec_)
         if not self.normalize_context:
             return cur_vec
@@ -387,7 +389,7 @@ class NonstationaryEnv(Wrapper):
     @property
     def param_max(self):
         keys = [key for key in self.rand_params]
-        vec_ = [self.max_param[key].reshape(-1,) for key in keys]
+        vec_ = [self.max_param[key].reshape(-1, ) for key in keys]
         if len(vec_) == 0:
             return []
         return np.hstack(vec_)
@@ -414,11 +416,13 @@ class NonstationaryEnv(Wrapper):
 if __name__ == '__main__':
     from grid_world import GridWorld
     from grid_world_general import RandomGridWorldPlat
-    env = NonstationaryEnv(gym.make('Humanoid-v2'), ['dof_damping_1_dim', 'gravity', 'body_mass', 'geom_friction', 'density'])
+
+    env = NonstationaryEnv(gym.make('Humanoid-v2'),
+                           ['dof_damping_1_dim', 'gravity', 'body_mass', 'geom_friction', 'density'])
     # env = NonstationaryEnv(gym.make('GridWorldPlat-v2'), ['dof_damping_1_dim'])
     print(env.param_min.shape)
-    #env2 =
-    #print(env2.metadata)
+    # env2 =
+    # print(env2.metadata)
     env.reset()
     tasks = env.sample_tasks(20)
     print(tasks[0])
@@ -436,7 +440,7 @@ if __name__ == '__main__':
             print('task: ', task)
             # env.set_task(task)
             print('length: ', env.env_parameter_length)
-            #print(env.env.model.opt.gravity)
+            # print(env.env.model.opt.gravity)
             print(env.unwrapped.model.dof_damping)
             print(env.init_params)
             print('parameter vec: ', env.env_parameter_vector)
@@ -445,5 +449,3 @@ if __name__ == '__main__':
             print('\n\n')
         if done:
             state = env.reset()
-
-
